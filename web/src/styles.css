@@ -1,0 +1,190 @@
+:root {
+  color-scheme: light;
+  font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+h1 {
+  font-size: 24px;
+  margin: 8px 0;
+}
+
+.hint {
+  color: #4b5563;
+  font-size: 14px;
+}
+
+form {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.roll-length {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+input {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 160px;
+}
+
+input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.defect-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+}
+
+.defect-table th,
+.defect-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.defect-table th {
+  background: #f9fafb;
+}
+
+.defect-table tr.row-error td {
+  background: #fef2f2;
+}
+
+.defect-table tr.row-error input {
+  border-color: #dc2626;
+}
+
+.empty-hint {
+  color: #9ca3af;
+  text-align: center;
+}
+
+button {
+  align-self: flex-start;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #93c5fd;
+  cursor: wait;
+}
+
+.defect-table button,
+.defect-table-wrap > button {
+  background: #ffffff;
+  color: #2563eb;
+  border: 1px solid #2563eb;
+  padding: 4px 10px;
+}
+
+.error-banner {
+  margin-top: 16px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.error-banner ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.result {
+  margin-top: 24px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  align-items: baseline;
+}
+
+.summary p {
+  margin: 4px 0;
+}
+
+.segment-list {
+  width: 100%;
+  margin: 8px 0 0;
+  padding-left: 24px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 14px;
+}
+
+.band-chart {
+  width: 100%;
+  margin: 16px 0;
+  display: block;
+}
+
+.band-chart .track {
+  fill: #e5e7eb;
+}
+
+.band-chart .defect {
+  fill: #f59e0b;
+}
+
+.band-chart .merged {
+  fill: #dc2626;
+}
+
+.band-chart .axis-label {
+  font-size: 13px;
+  fill: #374151;
+}
+
+.band-chart .lane-label {
+  font-size: 13px;
+  fill: #111827;
+  font-weight: 600;
+}
+
+.band-chart .seg-label {
+  font-size: 12px;
+  fill: #991b1b;
+}
