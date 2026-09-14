@@ -12,7 +12,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
         ]
       interval: 5s
       timeout: 3s
@@ -28,7 +28,10 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      # 必须用 127.0.0.1：容器内 localhost 先解析为 ::1，
+      # 而 busybox wget 只连接第一个解析结果，nginx 仅监听 IPv4，
+      # 用 localhost 会导致健康检查永远失败、verify 无法启动。
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
       interval: 5s
       timeout: 3s
       retries: 12

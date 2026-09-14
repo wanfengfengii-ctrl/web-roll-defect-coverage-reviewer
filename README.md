@@ -35,6 +35,8 @@ docker compose --profile verify up --build --exit-code-from verify
 
 任一环节失败，`verify` 以非零码退出，`--exit-code-from verify` 会把该退出码传给命令本身。
 
+就绪链路：`api` 健康（`GET http://127.0.0.1:8000/api/health`）→ `web` 健康（`GET http://127.0.0.1/`）→ `verify` 自动跑完全部检查。健康检查一律使用 `127.0.0.1` 而非 `localhost`：容器内 `localhost` 优先解析为 `::1`，而 nginx:alpine 的 busybox wget 只连接第一个解析结果、nginx 仅监听 IPv4，用 `localhost` 会使 web 永远不健康、验收无法开始。
+
 ## 区间规则
 
 - 所有长度与端点均为**整数毫米**；卷长范围 **1 ≤ 卷长 ≤ 1 000 000**。

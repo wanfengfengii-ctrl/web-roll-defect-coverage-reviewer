@@ -2,8 +2,8 @@
 # 一次性验收：依次执行 pytest、Vitest、Playwright，任一失败即非零退出。
 set -euo pipefail
 
-API_BASE_URL="${API_BASE_URL:-http://localhost:8000}"
-WEB_BASE_URL="${WEB_BASE_URL:-http://localhost:8080}"
+API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
+WEB_BASE_URL="${WEB_BASE_URL:-http://127.0.0.1:8080}"
 
 wait_for() {
   local url="$1" name="$2"
