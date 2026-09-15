@@ -102,4 +102,85 @@ describe("BandChart", () => {
       "0 0 1000 176",
     );
   });
+
+  test("未提供排程时不渲染执行段车道，图表布局不变", () => {
+    render(
+      <BandChart
+        rollLength={1000}
+        defects={[{ start: 10, end: 20 }]}
+        merged={[{ start: 10, end: 20 }]}
+        zones={ZONES}
+      />,
+    );
+    expect(screen.queryByTestId("execution-rect")).not.toBeInTheDocument();
+    // 仅有作业区上移时，高度仍为 176 + 34
+    expect(screen.getByTestId("band-chart")).toHaveAttribute(
+      "viewBox",
+      "0 0 1000 210",
+    );
+  });
+
+  test("执行段矩形精确编码穿带边界并携带完好材料毫米数", () => {
+    render(
+      <BandChart
+        rollLength={500}
+        defects={[
+          { start: 0, end: 100 },
+          { start: 101, end: 200 },
+          { start: 300, end: 400 },
+          { start: 401, end: 500 },
+        ]}
+        merged={[
+          { start: 0, end: 100 },
+          { start: 101, end: 200 },
+          { start: 300, end: 400 },
+          { start: 401, end: 500 },
+        ]}
+        executions={[
+          { start: 0, end: 200, good_mm: 1 },
+          { start: 300, end: 500, good_mm: 1 },
+        ]}
+      />,
+    );
+    const rects = screen.getAllByTestId("execution-rect");
+    expect(rects).toHaveLength(2);
+    // x = start/500*1000，width = 跨度/500*1000
+    expect(rects[0]).toHaveAttribute("x", "0");
+    expect(rects[0]).toHaveAttribute("width", "400");
+    expect(rects[0]).toHaveAttribute("data-good-mm", "1");
+    expect(rects[1]).toHaveAttribute("x", "600");
+    expect(rects[1]).toHaveAttribute("width", "400");
+    expect(rects[1]).toHaveAttribute("data-good-mm", "1");
+    const labels = screen.getAllByTestId("execution-good-label");
+    expect(labels[0]).toHaveTextContent("完好 1 mm");
+    expect(labels[1]).toHaveTextContent("完好 1 mm");
+    // 追加执行段车道后画布增高 60
+    expect(screen.getByTestId("band-chart")).toHaveAttribute(
+      "viewBox",
+      "0 0 1000 236",
+    );
+  });
+
+  test("执行段与作业区可同时渲染，分界线贯穿到执行段车道", () => {
+    render(
+      <BandChart
+        rollLength={500}
+        defects={[{ start: 0, end: 100 }]}
+        merged={[{ start: 0, end: 100 }]}
+        zones={[
+          { index: 0, start: 0, end: 250, covered_mm: 100, coverage_ratio: 0.4 },
+          { index: 1, start: 250, end: 500, covered_mm: 0, coverage_ratio: 0 },
+        ]}
+        executions={[{ start: 0, end: 100, good_mm: 0 }]}
+      />,
+    );
+    expect(screen.getAllByTestId("execution-rect")).toHaveLength(1);
+    expect(screen.getAllByTestId("zone-region")).toHaveLength(2);
+    // 分界线终点随执行段车道下移
+    const boundaries = screen.getAllByTestId("zone-boundary");
+    expect(boundaries[boundaries.length - 1]).toHaveAttribute(
+      "y2",
+      String(170 + 34 + 26),
+    );
+  });
 });

@@ -15,12 +15,16 @@ export interface MergePayload {
   roll_length: number | string;
   defects: { start: number | string; end: number | string }[];
   zone_length?: number | string;
+  max_travel?: number | string;
+  sound_tolerance?: number | string;
 }
 
 export function buildPayload(
   rollLength: string,
   rows: DefectRow[],
   zoneLength = "",
+  maxTravel = "",
+  soundTolerance = "",
 ): MergePayload {
   const payload: MergePayload = {
     roll_length: toIntOrRaw(rollLength),
@@ -33,6 +37,14 @@ export function buildPayload(
   // 填了非整数则原样提交，由 API 返回指向 zone_length 的 422。
   if (zoneLength.trim() !== "") {
     payload.zone_length = toIntOrRaw(zoneLength);
+  }
+  // 最大行程与完好材料容限成对可选：各自留空则不携带，只填一个时
+  // 仅携带已填字段，由 API 返回同时指向两个字段的成对性 422。
+  if (maxTravel.trim() !== "") {
+    payload.max_travel = toIntOrRaw(maxTravel);
+  }
+  if (soundTolerance.trim() !== "") {
+    payload.sound_tolerance = toIntOrRaw(soundTolerance);
   }
   return payload;
 }

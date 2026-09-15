@@ -8,6 +8,7 @@ interface Props {
 
 /** 汇总区：与带状图、下载 JSON 使用同一份 API 结果。 */
 export function Summary({ result, selectedZone = null }: Props) {
+  const goodTotal = result.executions?.reduce((sum, run) => sum + run.good_mm, 0);
   return (
     <section data-testid="summary" className="summary">
       <p>
@@ -29,6 +30,27 @@ export function Summary({ result, selectedZone = null }: Props) {
           </li>
         ))}
       </ol>
+      {result.executions && result.executions.length > 0 && (
+        <div data-testid="execution-summary" className="execution-summary">
+          <p>
+            执行段数：
+            <strong data-testid="execution-count">
+              {result.executions.length}
+            </strong>
+            ；带入完好材料合计：
+            <strong data-testid="execution-good-total">{goodTotal}</strong> mm
+          </p>
+          <ol data-testid="execution-list" className="segment-list">
+            {result.executions.map((run, i) => (
+              <li key={i} data-testid="execution-item">
+                执行 {i + 1}：[{run.start}, {run.end}]（跨度{" "}
+                {run.end - run.start} mm，完好材料{" "}
+                <span data-testid="execution-good-mm">{run.good_mm}</span> mm）
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       {result.zones && result.zones.length > 0 && (
         <table data-testid="zone-table" className="zone-table">
           <thead>

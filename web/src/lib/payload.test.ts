@@ -71,3 +71,74 @@ describe("buildPayload", () => {
     });
   });
 });
+
+describe("buildPayload 穿带排程成对字段", () => {
+  test("两个排程字段都留空时均不携带，响应保持原状", () => {
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "", "", ""),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+    });
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "", "  ", " "),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+    });
+  });
+
+  test("两个排程字段同时填写时均按整数携带", () => {
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "", "300", " 50 "),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      max_travel: 300,
+      sound_tolerance: 50,
+    });
+  });
+
+  test("只填最大行程时只携带该字段，由 API 判定成对性", () => {
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "", "300", ""),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      max_travel: 300,
+    });
+  });
+
+  test("只填完好材料容限时只携带该字段，由 API 判定成对性", () => {
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "", "", "50"),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      sound_tolerance: 50,
+    });
+  });
+
+  test("非整数排程字段原样提交，由 API 判定为非法", () => {
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "", "3e2", "2.5"),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      max_travel: "3e2",
+      sound_tolerance: "2.5",
+    });
+  });
+
+  test("排程字段可与作业区长度同时携带，两项分析互不改写", () => {
+    expect(
+      buildPayload("1000", [{ start: "1", end: "2" }], "400", "300", "50"),
+    ).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      zone_length: 400,
+      max_travel: 300,
+      sound_tolerance: 50,
+    });
+  });
+});

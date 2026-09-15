@@ -1,4 +1,4 @@
-import type { Segment, ZoneCoverage } from "../types";
+import type { ExecutionSegment, Segment, ZoneCoverage } from "../types";
 
 const WIDTH = 1000;
 const LANE_HEIGHT = 26;
@@ -9,18 +9,23 @@ const HEIGHT = 176;
 const ZONE_Y = 20;
 const ZONE_LANE_HEIGHT = 22;
 const ZONE_BLOCK = 34;
+// 提供穿带排程时，底部追加执行段车道与边界标签
+const EXEC_Y = 170;
+const EXEC_BLOCK = 60;
 
 interface Props {
   rollLength: number;
   defects: Segment[];
   merged: Segment[];
   zones?: ZoneCoverage[];
+  executions?: ExecutionSegment[];
   selectedZone?: number | null;
   onSelectZone?: (index: number) => void;
 }
 
 /**
- * 线性带状图：上行原始缺陷，下行合并返工段；
+ * 线性带状图：上行原始缺陷，下行合并返工段，再下行为穿带执行段
+ * （相邻返工段的连续分组，标注每次执行带入的完好材料毫米数）；
  * 请求携带作业区长度时，顶部增加一条可点选的作业区通道，
  * 并以虚线标出贯穿全图的分界线。所有边界均由同一份 API 结果换算，
  * 与汇总值、下载文件呈现完全相同的返工边界。
@@ -30,15 +35,19 @@ export function BandChart({
   defects,
   merged,
   zones,
+  executions,
   selectedZone = null,
   onSelectZone,
 }: Props) {
   const zoneList = zones ?? [];
   const hasZones = zoneList.length > 0;
+  const executionList = executions ?? [];
+  const hasExecutions = executionList.length > 0;
   const shift = hasZones ? ZONE_BLOCK : 0;
   const rawY = RAW_Y + shift;
   const mergedY = MERGED_Y + shift;
-  const height = HEIGHT + shift;
+  const execY = EXEC_Y + shift;
+  const height = HEIGHT + shift + (hasExecutions ? EXEC_BLOCK : 0);
 
   const x = (value: number) => (value / rollLength) * WIDTH;
   const width = (seg: Segment) =>
@@ -162,6 +171,65 @@ export function BandChart({
         </g>
       ))}
 
+      {hasExecutions && (
+        <>
+          <text x={0} y={execY - 8} className="lane-label">
+            穿带执行（{executionList.length} 次）
+          </text>
+          <rect
+            x={0}
+            y={execY}
+            width={WIDTH}
+            height={LANE_HEIGHT}
+            className="track"
+          />
+          {executionList.map((run, i) => (
+            <g key={i}>
+              <rect
+                data-testid="execution-rect"
+                data-good-mm={run.good_mm}
+                className="execution"
+                x={x(run.start)}
+                y={execY}
+                width={width(run)}
+                height={LANE_HEIGHT}
+              >
+                <title>
+                  {`执行 ${i + 1}：[${run.start}, ${run.end}]，` +
+                    `跨度 ${run.end - run.start} mm，完好材料 ${run.good_mm} mm`}
+                </title>
+              </rect>
+              <text
+                data-testid="execution-good-label"
+                x={x(run.start) + width(run) / 2}
+                y={execY - 2}
+                className="exec-label"
+                textAnchor="middle"
+                pointerEvents="none"
+              >
+                {`完好 ${run.good_mm} mm`}
+              </text>
+              <text
+                x={x(run.start)}
+                y={execY + LANE_HEIGHT + 16}
+                className="seg-label exec-boundary"
+                textAnchor="middle"
+              >
+                {run.start}
+              </text>
+              <text
+                x={x(run.end)}
+                y={execY + LANE_HEIGHT + 16}
+                className="seg-label seg-label-end exec-boundary"
+                textAnchor="middle"
+              >
+                {run.end}
+              </text>
+            </g>
+          ))}
+        </>
+      )}
+
       {hasZones &&
         zoneList.map((zone) => (
           <g key={`boundary-${zone.index}`}>
@@ -171,7 +239,7 @@ export function BandChart({
               x1={x(zone.start)}
               y1={ZONE_Y}
               x2={x(zone.start)}
-              y2={mergedY + LANE_HEIGHT}
+              y2={(hasExecutions ? execY : mergedY) + LANE_HEIGHT}
             />
             {zone.index === zoneList.length - 1 && (
               <line
@@ -180,7 +248,7 @@ export function BandChart({
                 x1={x(zone.end)}
                 y1={ZONE_Y}
                 x2={x(zone.end)}
-                y2={mergedY + LANE_HEIGHT}
+                y2={(hasExecutions ? execY : mergedY) + LANE_HEIGHT}
               />
             )}
           </g>

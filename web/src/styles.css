@@ -57,6 +57,29 @@ form {
   width: 200px;
 }
 
+.travel-fields {
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.travel-fields legend {
+  font-size: 13px;
+  color: #4b5563;
+  padding: 0 4px;
+}
+
+.travel-fields label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
 input.input-error {
   border-color: #dc2626;
 }
@@ -186,6 +209,20 @@ button:disabled {
 
 .band-chart .merged {
   fill: #dc2626;
+}
+
+.band-chart .execution {
+  fill: #7c3aed;
+}
+
+.band-chart .exec-label {
+  font-size: 12px;
+  fill: #5b21b6;
+  font-weight: 600;
+}
+
+.band-chart .exec-boundary {
+  fill: #5b21b6;
 }
 
 .band-chart .axis-label {

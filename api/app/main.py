@@ -8,10 +8,17 @@ from .merge import (
     coverage_ratio,
     covered_length,
     merge_intervals,
+    plan_executions,
+    sound_material_between,
     split_zones,
     zone_covered_mm,
 )
-from .schemas import MergeResponse, ZoneCoverage
+from .schemas import (
+    ExecutionSegment,
+    MergeResponse,
+    SchedulingFailure,
+    ZoneCoverage,
+)
 from .validation import validate_payload
 
 app = FastAPI(title="卷材返工段审查器", version="1.0.0")
@@ -38,7 +45,14 @@ async def merge(request: Request) -> MergeResponse | JSONResponse:
     except Exception:
         payload = None
 
-    roll_length, defects, zone_length, errors = validate_payload(payload)
+    (
+        roll_length,
+        defects,
+        zone_length,
+        max_travel,
+        sound_tolerance,
+        errors,
+    ) = validate_payload(payload)
     if errors:
         # 任何非法项都使整次提交失败，绝不返回部分结果
         return JSONResponse(
@@ -75,10 +89,41 @@ async def merge(request: Request) -> MergeResponse | JSONResponse:
                 )
             )
 
+    executions: list[ExecutionSegment] | None = None
+    scheduling: SchedulingFailure | None = None
+    if max_travel is not None:
+        assert sound_tolerance is not None  # 成对字段，校验保证同时存在
+        runs = plan_executions(merged, max_travel, sound_tolerance)
+        if runs is None:
+            # 零容限下各合并段独立执行；凡跨度超过最大行程者都无法排程
+            offending = [
+                (start, end)
+                for start, end in merged
+                if end - start > max_travel
+            ]
+            scheduling = SchedulingFailure(
+                feasible=False,
+                segments=[
+                    {"start": start, "end": end} for start, end in offending
+                ],
+                good_mm_total=0,
+            )
+        else:
+            executions = [
+                ExecutionSegment(
+                    start=start,
+                    end=end,
+                    good_mm=sound_material_between(merged, start, end),
+                )
+                for start, end in runs
+            ]
+
     return MergeResponse(
         roll_length=roll_length,
         merged=[{"start": start, "end": end} for start, end in merged],
         covered_mm=covered,
         coverage_ratio=coverage_ratio(covered, roll_length),
         zones=zones,
+        executions=executions,
+        scheduling=scheduling,
     )

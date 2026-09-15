@@ -53,4 +53,33 @@ describe("Summary", () => {
     expect(row1).toHaveClass("zone-selected");
     expect(row0).not.toHaveClass("zone-selected");
   });
+
+  test("无排程数据时不渲染执行段汇总", () => {
+    render(<Summary result={RESULT} />);
+    expect(screen.queryByTestId("execution-summary")).not.toBeInTheDocument();
+  });
+
+  test("逐执行段列出跨度与完好材料毫米数及合计", () => {
+    const withExecutions: MergeResponse = {
+      ...RESULT,
+      executions: [
+        { start: 0, end: 200, good_mm: 1 },
+        { start: 300, end: 500, good_mm: 6 },
+      ],
+    };
+    render(<Summary result={withExecutions} />);
+    expect(screen.getByTestId("execution-count")).toHaveTextContent("2");
+    expect(screen.getByTestId("execution-good-total")).toHaveTextContent("7");
+    const items = screen.getAllByTestId("execution-item");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("[0, 200]");
+    expect(items[0]).toHaveTextContent("跨度 200 mm");
+    expect(items[0].querySelector('[data-testid="execution-good-mm"]')).toHaveTextContent(
+      "1",
+    );
+    expect(items[1]).toHaveTextContent("[300, 500]");
+    expect(items[1].querySelector('[data-testid="execution-good-mm"]')).toHaveTextContent(
+      "6",
+    );
+  });
 });
