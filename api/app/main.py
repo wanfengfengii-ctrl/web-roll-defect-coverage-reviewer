@@ -4,8 +4,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .merge import coverage_ratio, covered_length, merge_intervals
-from .schemas import MergeResponse
+from .merge import (
+    coverage_ratio,
+    covered_length,
+    merge_intervals,
+    split_zones,
+    zone_covered_mm,
+)
+from .schemas import MergeResponse, ZoneCoverage
 from .validation import validate_payload
 
 app = FastAPI(title="卷材返工段审查器", version="1.0.0")
@@ -25,14 +31,14 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/api/merge", response_model=MergeResponse)
+@app.post("/api/merge", response_model=MergeResponse, response_model_exclude_none=True)
 async def merge(request: Request) -> MergeResponse | JSONResponse:
     try:
         payload = await request.json()
     except Exception:
         payload = None
 
-    roll_length, defects, errors = validate_payload(payload)
+    roll_length, defects, zone_length, errors = validate_payload(payload)
     if errors:
         # 任何非法项都使整次提交失败，绝不返回部分结果
         return JSONResponse(
@@ -48,9 +54,31 @@ async def merge(request: Request) -> MergeResponse | JSONResponse:
     assert roll_length is not None  # 校验通过时必有合法卷长
     merged = merge_intervals(defects)
     covered = covered_length(merged)
+
+    zones: list[ZoneCoverage] | None = None
+    if zone_length is not None:
+        # 在既有合并结果上按半开作业区切分，逐区计算交集覆盖
+        zones = []
+        for index, (zone_start, zone_end) in enumerate(
+            split_zones(roll_length, zone_length)
+        ):
+            zone_covered = zone_covered_mm(merged, (zone_start, zone_end))
+            zones.append(
+                ZoneCoverage(
+                    index=index,
+                    start=zone_start,
+                    end=zone_end,
+                    covered_mm=zone_covered,
+                    coverage_ratio=coverage_ratio(
+                        zone_covered, zone_end - zone_start
+                    ),
+                )
+            )
+
     return MergeResponse(
         roll_length=roll_length,
         merged=[{"start": start, "end": end} for start, end in merged],
         covered_mm=covered,
         coverage_ratio=coverage_ratio(covered, roll_length),
+        zones=zones,
     )

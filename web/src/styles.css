@@ -46,6 +46,21 @@ form {
   font-weight: 600;
 }
 
+.zone-length {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.zone-length input {
+  width: 200px;
+}
+
+input.input-error {
+  border-color: #dc2626;
+}
+
 input {
   padding: 6px 8px;
   border: 1px solid #d1d5db;
@@ -187,4 +202,53 @@ button:disabled {
 .band-chart .seg-label {
   font-size: 12px;
   fill: #991b1b;
+}
+
+.band-chart .zone {
+  fill: #dbeafe;
+  stroke: #2563eb;
+  stroke-width: 1;
+  cursor: pointer;
+}
+
+.band-chart .zone:hover {
+  fill: #bfdbfe;
+}
+
+.band-chart .zone.zone-selected {
+  fill: #93c5fd;
+  stroke-width: 2;
+}
+
+.band-chart .zone-boundary {
+  stroke: #2563eb;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.band-chart .zone-label {
+  font-size: 12px;
+  fill: #1e3a8a;
+}
+
+.zone-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.zone-table th,
+.zone-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.zone-table th {
+  background: #f9fafb;
+}
+
+.zone-table tr.zone-selected td {
+  background: #dbeafe;
 }

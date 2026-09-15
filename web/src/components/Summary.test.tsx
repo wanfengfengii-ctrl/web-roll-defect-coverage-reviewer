@@ -29,4 +29,28 @@ describe("Summary", () => {
     expect(items[0]).toHaveTextContent("[10, 30]");
     expect(items[1]).toHaveTextContent("[500, 600]");
   });
+
+  test("无作业区数据时不渲染逐区表", () => {
+    render(<Summary result={RESULT} />);
+    expect(screen.queryByTestId("zone-table")).not.toBeInTheDocument();
+  });
+
+  test("逐区列出覆盖明细并高亮选中行", () => {
+    const withZones: MergeResponse = {
+      ...RESULT,
+      zones: [
+        { index: 0, start: 0, end: 500, covered_mm: 20, coverage_ratio: 0.04 },
+        { index: 1, start: 500, end: 1000, covered_mm: 100, coverage_ratio: 0.2 },
+      ],
+    };
+    render(<Summary result={withZones} selectedZone={1} />);
+    const row0 = screen.getByTestId("zone-row-0");
+    const row1 = screen.getByTestId("zone-row-1");
+    expect(row0).toHaveTextContent("[0, 500)");
+    expect(row0).toHaveTextContent("20");
+    expect(row1).toHaveTextContent("[500, 1000)");
+    expect(row1).toHaveTextContent("0.2");
+    expect(row1).toHaveClass("zone-selected");
+    expect(row0).not.toHaveClass("zone-selected");
+  });
 });

@@ -23,18 +23,22 @@ def _error(row: int | None, field: str | None, message: str) -> Error:
     return {"row": row, "field": field, "message": message}
 
 
-def validate_payload(payload: Any) -> tuple[int | None, list[tuple[int, int]], list[Error]]:
+def validate_payload(
+    payload: Any,
+) -> tuple[int | None, list[tuple[int, int]], int | None, list[Error]]:
     """校验整个提交。
 
-    返回 (roll_length, defects, errors)。errors 非空即整次失败，
-    此时不得计算或返回任何归并结果。
+    返回 (roll_length, defects, zone_length, errors)。errors 非空即整次失败，
+    此时不得计算或返回任何归并结果。zone_length 为可选作业区长度：
+    未提供时返回 None，请求与响应保持原结构。
     """
     errors: list[Error] = []
     roll_length: int | None = None
+    zone_length: int | None = None
     defects: list[tuple[int, int]] = []
 
     if not isinstance(payload, dict):
-        return None, [], [_error(None, None, "请求体必须为 JSON 对象")]
+        return None, [], None, [_error(None, None, "请求体必须为 JSON 对象")]
 
     raw_roll = payload.get("roll_length")
     if not _is_int(raw_roll):
@@ -45,6 +49,25 @@ def validate_payload(payload: Any) -> tuple[int | None, list[tuple[int, int]], l
         )
     else:
         roll_length = raw_roll
+
+    raw_zone = payload.get("zone_length")
+    if raw_zone is not None:
+        if not _is_int(raw_zone):
+            errors.append(_error(None, "zone_length", "作业区长度必须为整数毫米"))
+        elif raw_zone < 1:
+            errors.append(
+                _error(None, "zone_length", "作业区长度必须大于或等于 1 毫米")
+            )
+        elif roll_length is not None and raw_zone > roll_length:
+            errors.append(
+                _error(
+                    None,
+                    "zone_length",
+                    f"作业区长度不能超过卷长 {roll_length} 毫米",
+                )
+            )
+        else:
+            zone_length = raw_zone
 
     raw_defects = payload.get("defects")
     if not isinstance(raw_defects, list) or len(raw_defects) == 0:
@@ -82,4 +105,4 @@ def validate_payload(payload: Any) -> tuple[int | None, list[tuple[int, int]], l
             if ok:
                 defects.append((start, end))
 
-    return roll_length, defects, errors
+    return roll_length, defects, zone_length, errors

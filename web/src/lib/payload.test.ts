@@ -41,4 +41,33 @@ describe("buildPayload", () => {
       defects: [],
     });
   });
+
+  test("填写作业区长度时按整数携带 zone_length", () => {
+    expect(buildPayload("1000", [{ start: "1", end: "2" }], "400")).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      zone_length: 400,
+    });
+  });
+
+  test("作业区长度留空或全空白时不携带该字段，请求保持原结构", () => {
+    const expected = {
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+    };
+    expect(buildPayload("1000", [{ start: "1", end: "2" }], "")).toEqual(
+      expected,
+    );
+    expect(buildPayload("1000", [{ start: "1", end: "2" }], "   ")).toEqual(
+      expected,
+    );
+  });
+
+  test("非整数作业区长度原样提交，由 API 判定为非法", () => {
+    expect(buildPayload("1000", [{ start: "1", end: "2" }], "2.5")).toEqual({
+      roll_length: 1000,
+      defects: [{ start: 1, end: 2 }],
+      zone_length: "2.5",
+    });
+  });
 });

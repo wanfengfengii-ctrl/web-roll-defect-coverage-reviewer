@@ -37,3 +37,33 @@ def coverage_ratio(covered: int, roll_length: int) -> float:
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
     return float(ratio)
+
+
+def split_zones(roll_length: int, zone_length: int) -> list[Interval]:
+    """把卷材按从零开始的半开作业区 [start, end) 切分。
+
+    末区允许短于设定长度；相邻作业区首尾相接、不留缝隙，
+    分界线上的点只归属于右侧作业区。
+    """
+    zones: list[Interval] = []
+    start = 0
+    while start < roll_length:
+        end = min(start + zone_length, roll_length)
+        zones.append((start, end))
+        start = end
+    return zones
+
+
+def zone_covered_mm(merged: Iterable[Interval], zone: Interval) -> int:
+    """合并返工段与半开作业区 [start, end) 的区间交集毫米数。
+
+    端点落在分界线时只计入右侧作业区：交集长度按
+    min(段终点, 区终点) - max(段起点, 区起点) 计算，
+    分界点本身宽度为零，不会被左右两区重复计入，
+    因此各作业区覆盖之和恒等于整卷覆盖长度。
+    """
+    zone_start, zone_end = zone
+    return sum(
+        max(0, min(end, zone_end) - max(start, zone_start))
+        for start, end in merged
+    )
