@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Iterable
 
@@ -103,68 +104,96 @@ def plan_executions(
     2. 带入的完好材料总量更少；
     3. 执行段终点序列按起点顺序的字典序更小。
 
-    实现：best[i] 是后缀 merged[i:] 的帕累托前沿——对每个执行段数量 k
-    保留完好材料最少（并列时终点序列字典序最小）的方案；前段选择分组时
-    用整卷容限扣除本组完好材料后查询此前沿，保证预算跨组累计正确。
+    实现 O(n²)：间隙前缀和 P 使组内完好材料 g(i,j)=P[j]-P[i]；
+    对「恰用 k 次执行」有
+        s_i(k) = -P[i] + min_{j 行程可达} (P[j] + s_{j+1}(k-1))
+    固定 k 时可行 j 构成随 i 右移的窗口 [i, f(i)]，用单调队列取最小值，
+    每层 O(n)；父指针只在最小值并列时保留更小的 j（即更小的首终点），
+    由归纳保证终点序列字典序最小。时间 O(n²)、空间 O(n²)。
     """
     n = len(merged)
     if n == 0:
         return []
 
-    # best[i]: {执行段数量 k: (完好材料, 终点序列, 执行段列表)}
-    best: list[dict[int, tuple[int, tuple[int, ...], list[Interval]]]] = [
-        {} for _ in range(n + 1)
-    ]
-    best[n] = {0: (0, (), [])}
-
-    for i in range(n - 1, -1, -1):
-        group_sound = 0
-        frontier: dict[int, tuple[int, tuple[int, ...], list[Interval]]] = {}
-        for j in range(i, n):
-            start = merged[i][0]
-            end = merged[j][1]
-            if end - start > max_travel:
-                # 段按起点升序排列，再往后只会更长
-                break
-            if j > i:
-                # 并入 merged[j] 新增的完好材料：上一段末到这一段起点的间隙
-                group_sound += merged[j][0] - merged[j - 1][1]
-            if group_sound > sound_tolerance:
-                # 间隙只增不减，再并入只会带入更多完好材料
-                break
-            for rest_count, (
-                rest_sound,
-                rest_ends,
-                rest_runs,
-            ) in best[j + 1].items():
-                total_sound = group_sound + rest_sound
-                if total_sound > sound_tolerance:
-                    # 该后缀方案超整卷预算；同执行段数下它已是完好材料最少者
-                    continue
-                candidate = (
-                    total_sound,
-                    (end,) + rest_ends,
-                    [(start, end), *rest_runs],
-                )
-                incumbent = frontier.get(1 + rest_count)
-                if incumbent is None or _solution_better(candidate, incumbent):
-                    frontier[1 + rest_count] = candidate
-        best[i] = frontier
-
-    if not best[0]:
+    # 零容限下各段独立执行恒可行，因此唯一不可行情形是某段自身跨度超限
+    if any(end - start > max_travel for start, end in merged):
         return None
-    # 决胜顺序：执行段数 → 完好材料 → 终点序列
-    _, winner = min(
-        best[0].items(), key=lambda kv: (kv[0], kv[1][0], kv[1][1])
-    )
-    return winner[2]
+
+    # 容限为零：任何 1 mm 间隙都不允许跨越，各合并段必然独立执行
+    if sound_tolerance == 0:
+        return list(merged)
+
+    # pref[j]：第 j 段之前（不含 j）所有相邻段间隙之和
+    pref = [0] * n
+    for k in range(1, n):
+        pref[k] = pref[k - 1] + (merged[k][0] - merged[k - 1][1])
+
+    # farthest[i]：从第 i 段起一次执行跨度不超最大行程时最远可并入的段；
+    # merged[i][0] 随 i 增大，故 farthest 关于 i 单调不减（双指针扫描）
+    farthest = [0] * n
+    j = 0
+    for i in range(n):
+        if j < i:
+            j = i
+        while j + 1 < n and merged[j + 1][1] - merged[i][0] <= max_travel:
+            j += 1
+        farthest[i] = j
+
+    INF = 10**30
+
+    # k == 1：整个后缀 i..n-1 一次执行，仅当末段在行程窗口内
+    choice: list[list[int]] = [[-1] * (n + 1)]  # choice[k-1] 对应 k 次执行
+    base = [INF] * (n + 1)
+    base_choice = [-1] * (n + 1)
+    for i in range(n):
+        if farthest[i] == n - 1:
+            base[i] = pref[n - 1] - pref[i]
+            base_choice[i] = n - 1
+    choice.append(base_choice)
+    if base[0] <= sound_tolerance:
+        return _reconstruct(merged, choice, 1)
+
+    # k == 2..n：逐层滚动；prev[i] 为后缀 i 恰用 k-1 次执行的最小完好材料
+    prev = base
+    for k in range(2, n + 1):
+        cur = [INF] * (n + 1)
+        cur_choice = [-1] * (n + 1)
+        # 单调队列：元素 (j, value)，value = pref[j] + prev[j+1]，队首最小；
+        # value 并列时保留先入队的更小 j（终点序列字典序更小）
+        q: deque[tuple[int, int]] = deque()
+        added = -1
+        for i in range(n):
+            hi = farthest[i]
+            while added < hi:
+                added += 1
+                if prev[added + 1] >= INF:
+                    continue
+                value = pref[added] + prev[added + 1]
+                while q and q[-1][1] > value:
+                    q.pop()
+                q.append((added, value))
+            while q and q[0][0] < i:
+                q.popleft()
+            if q:
+                best_j, best_value = q[0]
+                cur[i] = best_value - pref[i]
+                cur_choice[i] = best_j
+        choice.append(cur_choice)
+        if cur[0] <= sound_tolerance:
+            return _reconstruct(merged, choice, k)
+        prev = cur
+
+    return None
 
 
-def _solution_better(
-    candidate: tuple[int, tuple[int, ...], list[Interval]],
-    incumbent: tuple[int, tuple[int, ...], list[Interval]],
-) -> bool:
-    """相同执行段数量下：完好材料更少 → 终点序列字典序更小。"""
-    if candidate[0] != incumbent[0]:
-        return candidate[0] < incumbent[0]
-    return candidate[1] < incumbent[1]
+def _reconstruct(
+    merged: list[Interval], choice: list[list[int]], group_count: int
+) -> list[Interval]:
+    """按各层父指针还原执行段：choice[k][i] 给出首组并入的末段下标。"""
+    runs: list[Interval] = []
+    i = 0
+    for k in range(group_count, 0, -1):
+        j = choice[k][i]
+        runs.append((merged[i][0], merged[j][1]))
+        i = j + 1
+    return runs

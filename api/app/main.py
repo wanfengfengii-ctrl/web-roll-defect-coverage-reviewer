@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from .merge import (
     coverage_ratio,
@@ -93,7 +94,11 @@ async def merge(request: Request) -> MergeResponse | JSONResponse:
     scheduling: SchedulingFailure | None = None
     if max_travel is not None:
         assert sound_tolerance is not None  # 成对字段，校验保证同时存在
-        runs = plan_executions(merged, max_travel, sound_tolerance)
+        # 排程为 O(n²) 同步重计算，放到线程池执行，避免阻塞事件循环、
+        # 拖住同期的其他审查请求
+        runs = await run_in_threadpool(
+            plan_executions, merged, max_travel, sound_tolerance
+        )
         if runs is None:
             # 零容限下各合并段独立执行；凡跨度超过最大行程者都无法排程
             offending = [

@@ -96,6 +96,7 @@ docker compose --profile verify up --build --exit-code-from verify
 - 任一合并段自身跨度超过最大行程时**无法排程**：HTTP 仍为 200，响应不含 `executions`，改在 `scheduling.segments` 中返回全部越界合并段的边界（`good_mm_total` 恒为 0，即零容限独立执行的完好材料基线）；页面清空本次旧结果，错误横幅逐段列出边界，并聚焦**最大行程**输入框。
 - 两项分析可同时使用：排程只读取合并段，不改写 `merged` 边界、覆盖账目与 `zones` 明细。
 - 最大行程必须为整数且 **1 ≤ 最大行程 ≤ 卷长**；完好材料容限必须为整数且 **0 ≤ 容限 ≤ 卷长**。只填一个字段（或填非整数、越界）都使整次提交失败：422 错误同时指向 `max_travel` 与 `sound_tolerance` 两个表单字段；多项错误按「表单字段（`roll_length`、`zone_length`、`max_travel`、`sound_tolerance`）→ 缺陷输入行」的顺序稳定返回。
+- 排程为 O(n²) 动态规划（间隙前缀和 + 每层 O(n) 的单调队列），零容限直接返回各段独立执行；重计算在线程池工作线程执行，**不阻塞事件循环**——例如 400 个分离段的最坏排程约 10 ms，同期其他审查请求可立即穿插返回。
 
 ```json
 // POST /api/merge

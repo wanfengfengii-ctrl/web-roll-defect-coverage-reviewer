@@ -10,8 +10,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import random
+import time
 
+import httpx
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -174,6 +177,77 @@ class TestPlanExecutions:
             # 执行段按起点升序、首尾恰好覆盖全部合并段
             assert runs[0][0] == merged[0][0]
             assert runs[-1][1] == merged[-1][1]
+
+
+def _separated_segments(count: int, pitch: int, length: int = 100):
+    return [(i * pitch, i * pitch + length) for i in range(count)]
+
+
+class TestPlanExecutionsPerformance:
+    """400 个分离返工段必须及时返回，不允许 O(n^3) 级回退。"""
+
+    def test_overall_merge_feasible_returns_immediately(self):
+        merged = _separated_segments(400, pitch=2100)
+        t0 = time.perf_counter()
+        runs = plan_executions(merged, 1_000_000, 1_000_000)
+        elapsed = time.perf_counter() - t0
+        assert runs == [(merged[0][0], merged[-1][1])]
+        assert elapsed < 0.5  # 旧 O(n^3) 实现约需 10 秒
+
+    def test_zero_tolerance_is_linear_fast_path(self):
+        merged = _separated_segments(400, pitch=2100)
+        t0 = time.perf_counter()
+        runs = plan_executions(merged, 1_000_000, 0)
+        elapsed = time.perf_counter() - t0
+        assert runs == list(merged)
+        assert elapsed < 0.5
+
+    def test_worst_case_bound_for_400_segments(self):
+        # 行程只够每次并两段（约 200 个执行段、近 200 层 DP）：最坏路径
+        merged = _separated_segments(400, pitch=2100)
+        t0 = time.perf_counter()
+        runs = plan_executions(merged, 2300, 1_000_000)
+        elapsed = time.perf_counter() - t0
+        assert len(runs) == 200
+        assert elapsed < 2.0  # O(n^2) 下约 10 ms，给共享 CI 留足余量
+
+    def test_concurrent_reviews_do_not_block_each_other(self):
+        # 重排在工作线程并发执行时，事件循环上的轻量审查必须及时穿插返回
+        heavy = {
+            "roll_length": 1_000_000,
+            "max_travel": 2300,
+            "sound_tolerance": 1_000_000,
+            "defects": [
+                {"start": s, "end": e}
+                for s, e in _separated_segments(400, pitch=2100)
+            ],
+        }
+        light = {
+            "roll_length": 1000,
+            "defects": [{"start": 10, "end": 20}],
+        }
+
+        async def scenario():
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://t"
+            ) as client:
+                async def timed(payload):
+                    t0 = time.perf_counter()
+                    resp = await client.post("/api/merge", json=payload)
+                    return time.perf_counter() - t0, resp.status_code
+
+                heavy_results, light_result = await asyncio.gather(
+                    asyncio.gather(*[timed(heavy) for _ in range(4)]),
+                    timed(light),
+                )
+                return heavy_results, light_result
+
+        heavy_results, (light_elapsed, light_code) = asyncio.run(scenario())
+        assert all(code == 200 for _, code in heavy_results)
+        assert light_code == 200
+        # 旧实现同步阻塞事件循环时，轻量请求需排队等待全部重排（约 40 秒）
+        assert light_elapsed < 2.0
 
 
 class TestSchedulingApi:
